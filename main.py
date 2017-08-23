@@ -18,11 +18,9 @@ def read_file(filename):
 
 if __name__ == "__main__":
 	data, labels = read_file('dummy_data.json')
-	#print(data)
-	#print(labels)
-
+	
 	# Target log path
-	logs_path = '~/Documents/tensorflow/dynamic_lstm.log'
+	logs_path = './logs'
 	writer = tf.summary.FileWriter(logs_path)
 
 	lstm = Single_Directional_LSTM(writer)
