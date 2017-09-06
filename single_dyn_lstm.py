@@ -4,15 +4,16 @@ import numpy as np
 import random
 
 class Single_Directional_LSTM(object):
-	def __init__(self, writer):
+	def __init__(self, writer, feature_size):
 		self.writer = writer
 		self.hidden_size = 10
 		self.output_size = 2
-		self.feature_size = 1
+		self.feature_size = feature_size
 		self.learning_rate = 0.001
 		self.training_iters = 5
 		self.batch_size = 1
 		self.sent_len = 5
+		self.max_seq_len = 6
 
 	def variable_summaries(self, var):
 		with tf.name_scope("summaries"):
@@ -27,7 +28,7 @@ class Single_Directional_LSTM(object):
 
 
 	def build_model(self):
-		x = tf.placeholder(tf.float32, [self.batch_size, self.sent_len, self.feature_size], name="input_features")
+		x = tf.placeholder(tf.float32, [self.batch_size, self.max_seq_len, self.feature_size], name="input_features")
 		y = tf.placeholder(tf.float32, [self.batch_size, self.output_size], name="gold_labels")
 
 		weights = tf.Variable(tf.random_normal([self.hidden_size, self.output_size], dtype=tf.float32), name="weights")
@@ -37,9 +38,11 @@ class Single_Directional_LSTM(object):
 
 		lstm = rnn.BasicLSTMCell(self.hidden_size)
 
-		# Split into self.sent_len tensors along axis=1
-		x_split = tf.split(x, self.sent_len, 1)
-		# Reshape each of these to [self.batch_size, self.feature_size]
+		# Split into single-step tensors along axis=1 with shape [self.batch_size, self.feature_size]
+		#print(x.get_shape())
+		#print(tf.shape(x))
+		#x_split = tf.unstack(x, num=seq_len, axis=1)
+		x_split = tf.split(x, self.max_seq_len, 1)
 		x_split = [tf.squeeze(t, [1]) for t in x_split]
 
 
@@ -53,7 +56,8 @@ class Single_Directional_LSTM(object):
 		return (x, y, tf.matmul(outputs[-1], weights) + biases)
 
 	def train(self, data, gold):
-		data = np.reshape(data, [-1, self.sent_len, self.feature_size])
+		num_examples = len(gold)
+		#data = np.reshape(data, [num_examples, -1, self.feature_size])
 
 		x, y, pred = self.build_model()
 
@@ -82,17 +86,22 @@ class Single_Directional_LSTM(object):
 			self.writer.add_graph(session.graph)
 
 			while step < self.training_iters:
-				i = random.randint(0, len(gold) - 1)
+				i = random.randint(0, num_examples - 1)
 
 				features_in = np.array(data[i])
-				example_size = len(features_in)
-				features_in = np.reshape(features_in, [-1, self.sent_len, self.feature_size])
+				features_in = np.reshape(features_in, [self.batch_size, -1, self.feature_size])
+				features_in = np.pad(features_in, [[0,0],[0,self.max_seq_len - features_in.shape[1]],[0,0]], 'constant')
+				dyn_seq_len = np.array([len(features_in)])
 
 				labels_out_onehot = np.zeros([self.output_size], dtype=float)
 				labels_out_onehot[gold[i]] = 1.0
 				labels_out_onehot = np.reshape(labels_out_onehot, [self.batch_size, -1])
 
-				_, acc, loss, onehot_pred, summary = session.run([optimizer, accuracy, cost, pred, summarize_all], feed_dict={x: features_in, y:labels_out_onehot})
+				_, acc, loss, onehot_pred, summary = session.run(
+					[optimizer, accuracy, cost, pred, summarize_all], 
+					feed_dict={x: features_in, y:labels_out_onehot}
+					)
+
 				self.writer.add_summary(summary, i)
 				print("Iter= " + str(step+1) + ", Accuracy= " + str(acc) + ", Loss= " + str(loss))
 				step += 1
