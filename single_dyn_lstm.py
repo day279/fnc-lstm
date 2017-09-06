@@ -4,7 +4,7 @@ import numpy as np
 import random
 
 class Single_Directional_LSTM(object):
-	def __init__(self, writer, feature_size):
+	def __init__(self, writer, feature_size, max_seq_len):
 		self.writer = writer
 		self.hidden_size = 10
 		self.output_size = 2
@@ -13,7 +13,7 @@ class Single_Directional_LSTM(object):
 		self.training_iters = 5
 		self.batch_size = 1
 		self.sent_len = 5
-		self.max_seq_len = 6
+		self.max_seq_len = max_seq_len
 
 	def variable_summaries(self, var):
 		with tf.name_scope("summaries"):
@@ -57,7 +57,6 @@ class Single_Directional_LSTM(object):
 
 	def train(self, data, gold):
 		num_examples = len(gold)
-		#data = np.reshape(data, [num_examples, -1, self.feature_size])
 
 		x, y, pred = self.build_model()
 
